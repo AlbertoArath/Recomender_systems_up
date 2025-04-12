@@ -1,0 +1,46 @@
+# cargar variables de entorno desde archivo .env
+$envFile = ".env"
+
+if (-Not (Test-Path $envFile)) {
+    Write-Error "El archivo .env no existe en el directorio actual."
+    exit 1
+}
+
+Get-Content $envFile | ForEach-Object {
+    if ($_ -and ($_ -notmatch '^\s*#')) {
+        $parts = $_ -split '=', 2
+        if ($parts.Count -eq 2) {
+            $name = $parts[0].Trim()
+            $value = $parts[1].Trim()
+            [System.Environment]::SetEnvironmentVariable($name, $value, "Process")
+        }
+    }
+}
+
+# cargar valores de entorno desde variables ya definidas
+$clientId = $env:SPOTIPY_CLIENT_ID
+$clientSecret = $env:SPOTIPY_CLIENT_SECRET
+$trackId = "3n3Ppam7vgaVa1iaRUc9Lp"  # Ejemplo: Mr. Brightside
+
+# codificar en Base64 las credenciales
+$credentials = "$clientId`:$clientSecret"
+$bytes = [System.Text.Encoding]::ASCII.GetBytes($credentials)
+$base64Auth = [Convert]::ToBase64String($bytes)
+
+# solicitar token de Spotify
+$response = Invoke-RestMethod -Method Post `
+  -Uri "https://accounts.spotify.com/api/token" `
+  -Headers @{ Authorization = "Basic $base64Auth" } `
+  -ContentType "application/x-www-form-urlencoded" `
+  -Body "grant_type=client_credentials"
+
+# token de acceso
+$accessToken = $response.access_token
+
+# hacer consulta
+$artistId = "0TnOYISbd1XYRBk9myaseg"  # Pitbull como ejemplo 😄
+$artistResponse = Invoke-RestMethod -Uri "https://api.spotify.com/v1/artists/$artistId" `
+  -Headers @{ Authorization = "Bearer $accessToken" }
+
+# resultado
+$artistResponse | Format-List
